@@ -1,0 +1,155 @@
+---
+title: "Global situation of Covid19"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows 
+    vertical_layout: fill
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+
+
+# Load packages 
+library(tidyverse)
+library(data.table)
+
+# Color and maps 
+library(plotly)
+library(leaflet)
+library(leafpop)
+library(RColorBrewer)
+library(glue)
+
+# Dates
+library(lubridate)
+
+
+```
+
+```{r, data-prep}
+
+# Data
+
+df <- read.csv("coronavirus.csv")
+
+
+# data prep for daily cases
+
+df_daily <- df |> 
+  group_by(date, type) |> 
+  summarise(total = sum(cases, na.rm = T), .groups = "drop") |> 
+  pivot_wider(names_from = type,
+              values_from = total)  |> 
+  arrange(date) |> 
+  ungroup() |> 
+  mutate(active = confirmed - death - recovery) |> 
+  mutate(confirmed_cum = cumsum(confirmed),
+         death_cum = cumsum(death),
+         recovery_cum = cumsum(recovery),
+         active_cum = cumsum(active))
+
+# covid19 cases by country
+df_country <- df |> 
+  group_by(country, type) |> 
+  summarise(total = sum(cases, na.rm = T), .groups = "drop") |> 
+  pivot_wider(names_from = type,
+              values_from = total) |> 
+  mutate(active = confirmed - death - recovery) |> 
+  pivot_longer(cols = -country,
+               names_to = "type",
+               values_to = "total")
+
+# for global statistics
+df_world <- df |> 
+  group_by(type) |>
+  summarise(total = sum(cases, na.rm = T), .groups = "drop") |>
+  pivot_wider(names_from = type,
+                values_from = total) |>
+  mutate(active = confirmed - death - recovery)
+
+```
+
+
+```{r}
+# custom color
+confirmed_color <- "#67000d"
+active_color <- "#1f77b4"
+recovery_color <- "forestgreen"
+death_color <- "red"
+cfr_color <- "#660708"
+discharged_pct_color <- "e5383b"
+```
+
+
+
+# Overview
+
+### Confirmed Cases{.value-box}
+
+```{r}
+confirmed <- format(df_world$confirmed, big.mark = ",")
+valueBox(value = confirmed,
+         caption = "Total Confirmed Cases",
+         color = confirmed_color,
+         icon = "fa-virus")
+```
+
+### Active Cases{.value-box}
+
+```{r}
+active <- format(df_world$active, big.mark = ",")
+
+valueBox(
+  value = active,
+         caption = "Total Active Cases",
+         color = active_color,
+         icon = "fa-skull"
+)
+```
+
+
+### Recovery Cases{.value-box}
+
+```{r}
+recovery <- format(df_world$recovery, big.mark = ",")
+
+valueBox(
+        value = recovery,
+        caption = "Total Recovery Cases",
+        color = recovery_color,
+        icon = "fa-check-circle"
+)
+```
+
+
+### Death Cases{.value-box}
+
+```{r}
+death <- format(df_world$death, big.mark = ",")
+
+valueBox(
+  value = death,
+         caption = "Total Death Cases",
+         color = death_color,
+         icon = "fa-exclamation-triangle"
+)
+```
+
+### cfr {.value-box}
+
+```{r}
+cfr <- round((df_world$death / df_world$confirmed) * 100, 2)
+valueBox(
+  value = cfr,
+         caption = "Case Fatality Rate(CFR)",
+         color = cfr_color,
+         icon = "fa-heart-broken"
+)
+```
+
+
+
+
+
+
